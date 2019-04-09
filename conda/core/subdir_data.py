@@ -46,6 +46,11 @@ try:
 except ImportError:  # pragma: no cover
     import pickle  # NOQA
 
+try:
+    import typing
+except ImportError:  # pragma: no cover
+    pass
+
 log = getLogger(__name__)
 stderrlog = getLogger('conda.stderrlog')
 
@@ -56,15 +61,20 @@ REPODATA_HEADER_RE = b'"(_etag|_mod|_cache_control)":[ ]?"(.*?[^\\\\])"[,\}\s]' 
 
 class SubdirDataType(type):
 
-    def __call__(cls, channel):
+    def __call__(cls, channel, specs=None):
+        # type: (Channel, list) -> SubdirData
         assert channel.subdir
         assert not channel.package_filename
         assert type(channel) is Channel
-        cache_key = channel.url(with_credentials=True)
-        if not cache_key.startswith('file://') and cache_key in SubdirData._cache_:
+        if specs is None:
+            specs_key = ()
+        else:
+            specs_key = tuple(sorted(specs))
+        cache_key = (channel.url(with_credentials=True), specs_key)
+        if not cache_key[0].startswith('file://') and cache_key in SubdirData._cache_:
             return SubdirData._cache_[cache_key]
 
-        subdir_data_instance = super(SubdirDataType, cls).__call__(channel)
+        subdir_data_instance = super(SubdirDataType, cls).__call__(channel, specs)
         SubdirData._cache_[cache_key] = subdir_data_instance
         return subdir_data_instance
 
@@ -117,7 +127,7 @@ class SubdirData(object):
                 if prec == param:
                     yield prec
 
-    def __init__(self, channel):
+    def __init__(self, channel, specs=None):
         assert channel.subdir
         if channel.package_filename:
             parts = channel.dump()
@@ -128,6 +138,7 @@ class SubdirData(object):
         self.url_w_credentials = self.channel.url(with_credentials=True)
         self.cache_path_base = join(create_cache_dir(),
                                     splitext(cache_fn_url(self.url_w_credentials))[0])
+        self.specs = specs  # type: typing.Sequence[MatchSpec]
         self._loaded = False
 
     def reload(self):
@@ -222,9 +233,14 @@ class SubdirData(object):
             #           of packages next to the mod_tag_headers
             #         * Figure out how to specify a metachannel endpoint in configuration 
             #         * Fallback to traditional load
+            packages = None
+            if self.channel.metachannel_extensions_enabled:
+                packages = [s.name for s in self.specs]
+
             raw_repodata_str = fetch_repodata_remote_request(self.url_w_credentials,
                                                              mod_etag_headers.get('_etag'),
-                                                             mod_etag_headers.get('_mod'))
+                                                             mod_etag_headers.get('_mod'),
+                                                             packages)
         except Response304ContentUnchanged:
             log.debug("304 NOT MODIFIED for '%s'. Updating mtime and loading from disk",
                       self.url_w_subdir)
@@ -412,7 +428,7 @@ class Response304ContentUnchanged(Exception):
     pass
 
 
-def fetch_repodata_remote_request(url, etag, mod_stamp):
+def fetch_repodata_remote_request(url, etag, mod_stamp, packages=None):
     if not context.ssl_verify:
         warnings.simplefilter('ignore', InsecureRequestWarning)
 
@@ -423,6 +439,9 @@ def fetch_repodata_remote_request(url, etag, mod_stamp):
         headers["If-None-Match"] = etag
     if mod_stamp:
         headers["If-Modified-Since"] = mod_stamp
+    # conda-metachannel support for sending requirements as headers
+    if packages:
+        headers["Metachannel-Packages"] = ";".join(packages)
 
     if 'repo.anaconda.com' in url:
         filename = 'repodata.json.bz2'

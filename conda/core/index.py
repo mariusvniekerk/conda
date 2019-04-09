@@ -163,7 +163,7 @@ def get_reduced_index(prefix, channels, subdirs, specs):
                 log.info("Ignoring the following channel urls because mode is offline.%s",
                          dashlist(ignored_urls))
             channel_urls = IndexedSet(grouped_urls.get(True, ()))
-        subdir_datas = tuple(SubdirData(Channel(url)) for url in channel_urls)
+        subdir_datas = tuple(SubdirData(Channel(url), specs) for url in channel_urls)
 
         records = IndexedSet()
         collected_names = set()

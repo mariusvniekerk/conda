@@ -64,7 +64,7 @@ class Channel(object):
         Channel._cache_ = {}
 
     def __init__(self, scheme=None, auth=None, location=None, token=None, name=None,
-                 platform=None, package_filename=None):
+                 platform=None, package_filename=None, metachannel_extensions_enabled=None):
         self.scheme = scheme
         self.auth = auth
         self.location = location
@@ -72,6 +72,7 @@ class Channel(object):
         self.name = name
         self.platform = platform
         self.package_filename = package_filename
+        self.metachannel_extensions_enabled = metachannel_extensions_enabled
 
     @property
     def channel_location(self):
@@ -457,13 +458,21 @@ def parse_conda_channel_url(url):
     # from host, port, path
     assert channel_location is not None or channel_name is not None
 
+    # if the schema is of form `metachannel+http[s]` we have a metachannel
+    if 'metachannel' in configured_scheme:
+        _, _, configured_scheme = configured_scheme.partition('+')
+        is_metachannel = True
+    else:
+        is_metachannel = False
+
     return Channel(configured_scheme or 'https',
                    auth or configured_auth,
                    channel_location,
                    token or configured_token,
                    channel_name,
                    platform,
-                   package_filename)
+                   package_filename,
+                   is_metachannel)
 
 
 # backward compatibility for conda-build
