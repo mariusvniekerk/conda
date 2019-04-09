@@ -157,7 +157,7 @@ class SubdirData(object):
     High-level management and usage of repodata.json for subdirs.
     """
 
-    def __init__(self, channel):
+    def __init__(self, channel, specs=None):
         """
         **Beta** While in beta, expect both major and minor changes across minor releases.
 
@@ -170,8 +170,9 @@ class SubdirData(object):
                     * Channel('conda-forge/osx-64')
         """
         channel = Channel(channel)
+        print("SDD", channel)
         assert channel.subdir
-        self._internal = _SubdirData(channel)
+        self._internal = _SubdirData(channel, specs)
 
     def query(self, package_ref_or_match_spec):
         """

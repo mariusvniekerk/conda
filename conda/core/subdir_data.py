@@ -69,7 +69,7 @@ class SubdirDataType(type):
         if specs is None:
             specs_key = ()
         else:
-            specs_key = tuple(sorted(specs))
+            specs_key = tuple(sorted(specs, key=lambda s: str(s)))
         cache_key = (channel.url(with_credentials=True), specs_key)
         if not cache_key[0].startswith('file://') and cache_key in SubdirData._cache_:
             return SubdirData._cache_[cache_key]
@@ -139,6 +139,7 @@ class SubdirData(object):
         self.cache_path_base = join(create_cache_dir(),
                                     splitext(cache_fn_url(self.url_w_credentials))[0])
         self.specs = specs  # type: typing.Sequence[MatchSpec]
+        print(self.specs)
         self._loaded = False
 
     def reload(self):
@@ -235,7 +236,9 @@ class SubdirData(object):
             #         * Fallback to traditional load
             packages = None
             if self.channel.metachannel_extensions_enabled:
-                packages = [s.name for s in self.specs]
+                if self.specs:
+                    packages = [s.name for s in self.specs]
+            print(packages)
 
             raw_repodata_str = fetch_repodata_remote_request(self.url_w_credentials,
                                                              mod_etag_headers.get('_etag'),
@@ -346,6 +349,7 @@ class SubdirData(object):
             'url_w_subdir': self.url_w_subdir,
             'url_w_credentials': self.url_w_credentials,
             'cache_path_base': self.cache_path_base,
+            'specs': self.specs,
 
             '_package_records': _package_records,
             '_names_index': _names_index,
@@ -450,6 +454,8 @@ def fetch_repodata_remote_request(url, etag, mod_stamp, packages=None):
         headers['Accept-Encoding'] = 'gzip, deflate, compress, identity'
         headers['Content-Type'] = 'application/json'
         filename = 'repodata.json'
+
+    print("REQUEST:", headers, url)
 
     try:
         timeout = context.remote_connect_timeout_secs, context.remote_read_timeout_secs

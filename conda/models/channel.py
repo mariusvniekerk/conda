@@ -75,6 +75,11 @@ class Channel(object):
         self.metachannel_extensions_enabled = metachannel_extensions_enabled
 
     @property
+    def meta_scheme(self):
+        if self.metachannel_extensions_enabled and self.scheme:
+            return 'metachannel' + 's' if self.scheme == 'https' else ''
+
+    @property
     def channel_location(self):
         return self.location
 
@@ -166,7 +171,7 @@ class Channel(object):
         # fall back to the equivalent of self.base_url
         # re-defining here because base_url for MultiChannel is None
         if self.scheme:
-            cn = self.__canonical_name = "%s://%s" % (self.scheme,
+            cn = self.__canonical_name = "%s://%s" % (self.meta_scheme,
                                                       join_url(self.location, self.name))
             return cn
         else:
@@ -200,9 +205,9 @@ class Channel(object):
         bases = (join_url(base, p) for p in _platforms())
 
         if with_credentials and self.auth:
-            return ["%s://%s@%s" % (self.scheme, self.auth, b) for b in bases]
+            return ["%s://%s@%s" % (self.meta_scheme, self.auth, b) for b in bases]
         else:
-            return ["%s://%s" % (self.scheme, b) for b in bases]
+            return ["%s://%s" % (self.meta_scheme, b) for b in bases]
 
     def url(self, with_credentials=False):
         if self.canonical_name == UNKNOWN_CHANNEL:
@@ -290,6 +295,7 @@ class Channel(object):
             "name": self.name,
             "platform": self.platform,
             "package_filename": self.package_filename,
+            "metachannel_extensions_enabled": self.metachannel_extensions_enabled,
         }
 
 
@@ -449,10 +455,12 @@ def _read_channel_configuration(scheme, host, port, path):
 def parse_conda_channel_url(url):
     (scheme, auth, token, platform, package_filename,
      host, port, path, query) = split_conda_url_easy_parts(url, context.known_subdirs)
+    print(locals())
 
     # recombine host, port, path to get a channel_name and channel_location
     (channel_location, channel_name, configured_scheme, configured_auth,
      configured_token) = _read_channel_configuration(scheme, host, port, path)
+    print(locals())
 
     # if we came out with no channel_location or channel_name, we need to figure it out
     # from host, port, path
@@ -460,10 +468,16 @@ def parse_conda_channel_url(url):
 
     # if the schema is of form `metachannel+http[s]` we have a metachannel
     if 'metachannel' in configured_scheme:
-        _, _, configured_scheme = configured_scheme.partition('+')
+        if configured_scheme.endswith('s'):
+            configured_scheme = 'https'
+        else:
+            configured_scheme = 'http'
         is_metachannel = True
     else:
         is_metachannel = False
+    print('=' * 20)
+    print(locals())
+    print("=" * 20)
 
     return Channel(configured_scheme or 'https',
                    auth or configured_auth,
