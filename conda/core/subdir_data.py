@@ -213,6 +213,15 @@ class SubdirData(object):
                       self.url_w_subdir, self.cache_path_json)
 
         try:
+            # TODO: We can make this exact portion go and read from metachannel.
+            #       There are some additional things needed here for this to work nicely
+            #         * We need a prefixdata things for this.
+            #         * One potential option for this would be to have a special set of headers
+            #           We can pass the additional arguments to metachannel as headers
+            #         * When using metachannel we'd need to invalidate the cache as well when the set
+            #           of packages next to the mod_tag_headers
+            #         * Figure out how to specify a metachannel endpoint in configuration 
+            #         * Fallback to traditional load
             raw_repodata_str = fetch_repodata_remote_request(self.url_w_credentials,
                                                              mod_etag_headers.get('_etag'),
                                                              mod_etag_headers.get('_mod'))
